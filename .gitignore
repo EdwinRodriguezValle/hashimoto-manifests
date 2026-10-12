@@ -1,0 +1,70 @@
+# Sistema operativo
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+Desktop.ini
+
+# Editores e IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Archivos temporales y logs
+*.log
+logs/
+.tmp/
+tmp/
+.temp/
+*.tmp
+*.bak
+
+# Variables de entorno y credenciales locales
+.env
+.env.*
+!.env.example
+!.env.template
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+
+# Configuración local de Kubernetes (nunca subir kubeconfigs)
+.kube/
+kubeconfig
+kubeconfig.*
+**/kubeconfig
+**/kubeconfig.*
+
+# Secretos locales; los Secret de Kubernetes declarativos sí pueden estar versionados
+secrets.local.*
+**/secrets.local.*
+*.secret.local.*
+
+# Terraform / OpenTofu (si se agregan módulos de infraestructura)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Cachés y artefactos de herramientas
+.cache/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+node_modules/
+dist/
+build/
+coverage/
