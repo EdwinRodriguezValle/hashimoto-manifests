@@ -1,0 +1,25 @@
+name: Validate Kubernetes Manifests
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+
+jobs:
+  kubeconform:
+    name: Kubeconform Schema Validation
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Instalar Kubeconform
+        run: |
+          wget https://github.com
+          tar -xf kubeconform-linux-amd64.tar.gz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Validar Sintaxis de Manifiestos
+        # Valida de forma recursiva todos los archivos YAML del repositorio
+        run: kubeconform -summary -strict -ignore-missing-schemas apps/ platform/
