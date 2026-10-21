@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hashimoto-api-gateway
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com' # 👈 Tu URL de manifiestos
+    targetRevision: HEAD
+    path: apps/api-gateway/overlays/local # 👈 La ruta de Kustomize que creamos antes
+  destination:
+    server: 'https://default.svc'
+    namespace: hashimoto-core # 👈 Se desplegará dentro del namespace core
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
