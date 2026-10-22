@@ -7,8 +7,8 @@ spec:
   project: default
   source:
     repoURL: 'https://github.com/EdwinRodriguezValle/hashimoto-manifests.git'
-    targetRevision: feature/argocd-manifests
-    path: . # La raíz contiene kustomization.yaml y namespaces.yaml
+    targetRevision: main
+    path: namespaces
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: default
