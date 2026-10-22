@@ -1,25 +1,41 @@
-name: Validate Kubernetes Manifests
+name: Validate Argo CD Manifests
 
 on:
   pull_request:
-    branches: [ main, master ]
+    branches: [main]
   push:
-    branches: [ main, master ]
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
-  kubeconform:
-    name: Kubeconform Schema Validation
+  validate:
+    name: Render and validate manifests
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout del código
+      - name: Check out manifests
         uses: actions/checkout@v4
 
-      - name: Instalar Kubeconform
-        run: |
-          wget https://github.com
-          tar -xf kubeconform-linux-amd64.tar.gz
-          sudo mv kubeconform /usr/local/bin/
+      - name: Set up Kustomize
+        uses: imranismail/setup-kustomize@v2
 
-      - name: Validar Sintaxis de Manifiestos
-        # Valida de forma recursiva todos los archivos YAML del repositorio
-        run: kubeconform -summary -strict -ignore-missing-schemas apps/ platform/
+      - name: Install Kubeconform
+        run: |
+          curl --fail --location --silent --show-error \
+            https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz \
+            --output /tmp/kubeconform.tar.gz
+          tar -xzf /tmp/kubeconform.tar.gz -C /tmp kubeconform
+          sudo install /tmp/kubeconform /usr/local/bin/kubeconform
+
+      - name: Render Kustomize roots
+        run: |
+          kustomize build argocd/applications > /tmp/argocd-applications.yaml
+          kustomize build namespaces > /tmp/namespaces.yaml
+
+      - name: Validate Kubernetes and Argo CD resources
+        run: |
+          kubeconform -summary -strict -ignore-missing-schemas \
+            argocd/bootstrap/*.yaml \
+            /tmp/argocd-applications.yaml \
+            /tmp/namespaces.yaml
