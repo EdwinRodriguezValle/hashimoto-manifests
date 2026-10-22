@@ -10,7 +10,7 @@ spec:
     targetRevision: HEAD
     path: apps/api-gateway/overlays/local # 👈 La ruta de Kustomize que creamos antes
   destination:
-    server: 'https://default.svc'
+    server: 'https://kubernetes.default.svc'
     namespace: hashimoto-core # 👈 Se desplegará dentro del namespace core
   syncPolicy:
     automated:

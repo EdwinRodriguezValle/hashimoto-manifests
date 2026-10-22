@@ -10,7 +10,7 @@ spec:
     targetRevision: HEAD
     path: platform/namespaces # 👈 Argo CD leerá esta carpeta primero
   destination:
-    server: 'https://default.svc'
+    server: 'https://kubernetes.default.svc'
     namespace: default
   syncPolicy:
     automated:
