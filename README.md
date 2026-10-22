@@ -1,4 +1,4 @@
-# Hashimoto Manifests
+# Hashimoto Manifests Repository
 
 This repository contains the Argo CD bootstrap configuration, the root Application, and the child `Application` resources for the Hashimoto platform. Application source code and Kubernetes workload manifests live in [`hashimoto-platform`](https://github.com/EdwinRodriguezValle/hashimoto-platform).
 
