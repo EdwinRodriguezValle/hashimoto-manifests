@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server-ingress-cm
+  namespace: argocd
+  annotations:
+    # 🛰️ Mapea el tráfico por la entrada HTTP estándar (Puerto 80 interno de Traefik)
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    # 🔓 Le indica a Traefik que Argo CD recibirá tráfico HTTP común sin TLS interno
+    traefik.ingress.kubernetes.io/service.serversscheme: http
+spec:
+  rules:
+    - host: argocd.local # 👈 Tu dominio asignado
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 80 # 👈 Apunta al puerto HTTP nativo de Argo CD

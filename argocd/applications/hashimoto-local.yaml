@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hashimoto-platform-namespaces
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/EdwinRodriguezValle/hashimoto-manifests.git'
+    targetRevision: main
+    path: namespaces
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

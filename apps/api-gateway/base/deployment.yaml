@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: hashimoto-core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: ghcr.io/edwinrodriguezvalle/api-gateway:placeholder # 👈 Dejamos un placeholder, Kustomize lo cambiará
+          ports:
+            - containerPort: 8081
+          env:
+            - name: KEYCLOAK_ISSUER_URI
+              value: "http://localhost:8082/realms/hashimoto-realm"
+            - name: KEYCLOAK_JWK_SET_URI
+              value: "http://keycloak:8080/realms/hashimoto-realm/protocol/openid-connect/certs"
+            - name: API_AUDIENCE
+              value: "api-gateway-client"

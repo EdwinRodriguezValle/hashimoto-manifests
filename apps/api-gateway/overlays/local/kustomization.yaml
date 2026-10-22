@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+# 🏷️ Aquí es donde automatizaremos el cambio de versión en el futuro
+images:
+  - name: ghcr.io/edwinrodriguezvalle/api-gateway
+    newName: ghcr.io/edwinrodriguezvalle/api-gateway
+    newTag: 172a25bf296e # 👈 Coloca aquí el short SHA exacto que se subió a tus Packages
