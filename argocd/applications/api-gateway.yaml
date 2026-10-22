@@ -6,9 +6,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: 'https://github.com/EdwinRodriguezValle/hashimoto-platform/tree/main/k8s' # 👈 Tu URL de manifiestos
-    targetRevision: HEAD
-    path: apps/api-gateway/overlays/local # 👈 La ruta de Kustomize que creamos antes
+    repoURL: https://github.com/EdwinRodriguezValle/hashimoto-platform.git # 👈 Tu URL de manifiestos
+    targetRevision: main
+    path: k8s # 👈 La ruta de Kustomize que creamos antes
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: hashimoto-core # 👈 Se desplegará dentro del namespace core
