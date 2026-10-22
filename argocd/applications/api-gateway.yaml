@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: 'https://github.com' # 👈 Tu URL de manifiestos
+    repoURL: 'https://github.com/EdwinRodriguezValle/hashimoto-platform/tree/main/k8s' # 👈 Tu URL de manifiestos
     targetRevision: HEAD
     path: apps/api-gateway/overlays/local # 👈 La ruta de Kustomize que creamos antes
   destination:

@@ -6,9 +6,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: 'https://github.com'
-    targetRevision: HEAD
-    path: platform/namespaces # 👈 Argo CD leerá esta carpeta primero
+    repoURL: 'https://github.com/EdwinRodriguezValle/hashimoto-manifests.git'
+    targetRevision: feature/argocd-manifests
+    path: . # La raíz contiene kustomization.yaml y namespaces.yaml
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: default
