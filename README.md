@@ -25,19 +25,23 @@ k3d cluster create hashimoto-tracker --api-port 6443 -p "8085:80@loadbalancer" -
 
 ## 2. Live Install the Argo CD Core Operator
 
-Initialize the isolated control plane environment inside the cluster to boot up the delivery loops:
+Initialize the control plane environment and apply your local permanent Ingress/HTTP settings to avoid manual port-forwarding:
 ```bash
 # Create the bootstrap infrastructure namespace
 kubectl create namespace argocd
 
 # Inject the certified stable release definitions directly from the remote cloud
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl apply -n argocd --server-side --force-conflicts -f [https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml](https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml)
+
+# Apply the local bootstrap configurations (Disables internal TLS & enables Ingress permanent routing)
+kubectl apply -f argocd/bootstrap/
 ```
 
 ## 3. Verify Control Plane Status
-Monitor the startup sequence until all runtime pods show an active, running condition:
+Monitor the startup sequence until all runtime pods show an active, running condition (1/1 Running):
 ```bash
 kubectl get pods -n argocd -w
+kubectl get pods -n argocd
 ```
 
 ## 4. Decode the Admin Authentication Credentials
@@ -51,21 +55,24 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 
 Instead of applying resources manually via terminal flags, pass absolute root control to the declarative engine using the App-of-Apps management configuration.
 
-**1. Expose the Graphical Interface Dashboard**
+**1. Access the Graphical Interface Dashboard**
+Thanks to your permanent Ingress and local host mapping, you no longer need kubectl port-forward.
+Make sure you have added 127.0.0.1 argocd.local to your system's hosts file (/etc/hosts or C:\Windows\System32\drivers\etc\hosts).
 
-Establish a secure communication pipe to view your platform loops inside your local browser layout:
+👉 Open your browser context and go to: http://argocd.local:8085
+
+Username: admin
+
+Password: (The decoded string gathered in step 4 above of run de bellow code)
 ```bash
-kubectl port-forward svc/argocd-server -n argocd 8085:443
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
 ```
 
-
-👉 Open your browser context and go to: https://localhost:8080
-• Username: admin
-• Password: (The decoded string gathered in the step above)
+(Note: Accept the browser SSL warning if prompted, though internal HTTP is active via Traefik).
 
 **2. Inject the Initialization Root Controller**
 
-Inject the master declarative configuration token. This statement forces Argo CD to claim self-ownership over its configurations and automatically scale out your institutional namespaces (hashimoto-core, infra, ops, logs) directly from Git tracking:
+Inject the master declarative configuration token. This statement forces Argo CD to claim self-ownership over its configurations and automatically scale out your institutional namespaces directly from Git tracking:
 ```bash
 kubectl apply -f argocd/applications/hashimoto-local.yaml
 ````
@@ -79,21 +86,18 @@ hashimoto-manifests/
 │       └── validate-manifests.yaml   # Remote CI schema verification loop
 ├── apps/
 │   └── api-gateway/
-│       ├── base/                    # Standard workload templates
+│       ├── base/                     # Standard workload templates
 │       └── overlays/
-│           └── local/               # Kustomize tag mutations for GHCR
+│           └── local/                # Kustomize tag mutations for GHCR
 ├── argocd/
-│   └── applications/
-│       └── hashimoto-local.yaml     # Main App root declarative controller
+│   ├── bootstrap/                    # Permanent infrastructure configurations (Ingress & Params)
+│   │   ├── argocd-params-cm.yaml     # Enables internal HTTP mode (server.insecure) to run in local cluster and avoid TLS certs 
+│   │   └── argocd-ingress.yaml       # Permanent Ingress route for Traefik
+│   └── applications/                 # Master declarative application controllers
+│       └── hashimoto-local.yaml      # Root App-of-Apps declaration
 └── platform/
-└── namespaces/
-├── kustomization.yaml       # Aggregator configuration
-└── namespaces.yaml          # Shared platform division manifests
+    └── namespaces/
+        ├── kustomization.yaml        # Aggregator configuration
+        └── namespaces.yaml           # Shared platform division manifests
 
 ```
-
-Now that your README.md file is ready to be committed to the root of your manifests repository, let's complete the final step of the pipeline loop!
-Once you log into Argo CD on your browser via https://localhost:8080:
-• Does the hashimoto-platform-namespaces card appear inside your dashboard?
-• Clicking "Sync", does it show a bright green Synced / Healthy status?
-Let me know what you see on the screen to verify that your cluster has been fully automated!
