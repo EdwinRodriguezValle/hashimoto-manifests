@@ -112,4 +112,3 @@ For rollback, revert the commit that changed the image tag or Kubernetes configu
 The local cluster uses development settings. Do not commit real credentials, access tokens, or personal health data. Keep Argo CD local, rotate its initial admin password, and use a secret-management solution before sharing or promoting the deployment beyond local development.
 
 
-It is jut to test my pull request to main
