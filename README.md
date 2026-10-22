@@ -1,103 +1,112 @@
+# Hashimoto Manifests
 
-# Hashimoto Platform - GitOps Manifests 📜
+This repository contains the Argo CD bootstrap configuration and `Application` resources for the Hashimoto platform. Application source code and Kubernetes workload manifests live in [`hashimoto-platform`](https://github.com/EdwinRodriguezValle/hashimoto-platform).
 
-This repository acts as the single source of truth for the infrastructure and deployments of the Hashimoto Platform. It handles all Kubernetes resources, logical naming structures, and sync state controllers via Argo CD utilizing a declarative GitOps strategy.
+The first deployment target is a K3d cluster on a developer's computer. GitHub Actions builds and publishes images; Argo CD pulls configuration from Git and reconciles the local cluster. No always-on server or inbound connection to the developer's computer is required. The computer and K3d cluster must be running for Argo CD to deploy changes.
 
-## 🏗️ Prerequisites
-
-Before replicating the deployment loop, ensure your development machine has the following tools installed:
-• Docker / Docker Engine (Running live)
-• K3d (Local Kubernetes cluster engine)
-• kubectl (Kubernetes CLI manager)
-
-## 🚀 Step-by-Step Cluster Bootstrap
-
-Follow these sequential steps to clean, spin up, and hand over clúster orchestration to GitOps.
-
-## 1. Provision the Local Cluster
-
-Spin up your pre-configured hybrid cluster environment (ensure your terminal execution context matches your orchestration scripts if applicable):
-
-```bash
-# Example assuming local cluster provisioning wrappers exist or standard engine startup
-k3d cluster create hashimoto-tracker --api-port 6443 -p "8085:80@loadbalancer" --agents 2
-```
-
-## 2. Live Install the Argo CD Core Operator
-
-Initialize the control plane environment and apply your local permanent Ingress/HTTP settings to avoid manual port-forwarding:
-```bash
-# Create the bootstrap infrastructure namespace
-kubectl create namespace argocd
-
-# Inject the certified stable release definitions directly from the remote cloud
-kubectl apply -n argocd --server-side --force-conflicts -f [https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml](https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml)
-
-# Apply the local bootstrap configurations (Disables internal TLS & enables Ingress permanent routing)
-kubectl apply -f argocd/bootstrap/
-```
-
-## 3. Verify Control Plane Status
-Monitor the startup sequence until all runtime pods show an active, running condition (1/1 Running):
-```bash
-kubectl get pods -n argocd -w
-kubectl get pods -n argocd
-```
-
-## 4. Decode the Admin Authentication Credentials
-
-Extract and unpack the initial administrative access pass string from your cluster's secure memory:
-```bash
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
-```
-
-## 🗺️ Activating Declarative Platform GitOps
-
-Instead of applying resources manually via terminal flags, pass absolute root control to the declarative engine using the App-of-Apps management configuration.
-
-**1. Access the Graphical Interface Dashboard**
-Thanks to your permanent Ingress and local host mapping, you no longer need kubectl port-forward.
-Make sure you have added 127.0.0.1 argocd.local to your system's hosts file (/etc/hosts or C:\Windows\System32\drivers\etc\hosts).
-
-👉 Open your browser context and go to: http://argocd.local:8085
-
-Username: admin
-
-Password: (The decoded string gathered in step 4 above of run de bellow code)
-```bash
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
-```
-
-(Note: Accept the browser SSL warning if prompted, though internal HTTP is active via Traefik).
-
-**2. Inject the Initialization Root Controller**
-
-Inject the master declarative configuration token. This statement forces Argo CD to claim self-ownership over its configurations and automatically scale out your institutional namespaces directly from Git tracking:
-```bash
-kubectl apply -f argocd/applications/hashimoto-local.yaml
-````
-
-**📂 Repository File System Layout**
+## Repository layout
 
 ```text
-hashimoto-manifests/
-├── .github/
-│   └── workflows/
-│       └── validate-manifests.yaml   # Remote CI schema verification loop
-├── apps/
-│   └── api-gateway/
-│       ├── base/                     # Standard workload templates
-│       └── overlays/
-│           └── local/                # Kustomize tag mutations for GHCR
-├── argocd/
-│   ├── bootstrap/                    # Permanent infrastructure configurations (Ingress & Params)
-│   │   ├── argocd-params-cm.yaml     # Enables internal HTTP mode (server.insecure) to run in local cluster and avoid TLS certs 
-│   │   └── argocd-ingress.yaml       # Permanent Ingress route for Traefik
-│   └── applications/                 # Master declarative application controllers
-│       └── hashimoto-local.yaml      # Root App-of-Apps declaration
-└── platform/
-    └── namespaces/
-        ├── kustomization.yaml        # Aggregator configuration
-        └── namespaces.yaml           # Shared platform division manifests
-
+argocd/
+├── bootstrap/       # Local Argo CD HTTP and Ingress settings
+└── applications/    # Application resources applied to Argo CD
+kustomization.yaml   # Kustomize root for this repository
+namespaces.yaml      # Platform namespaces
 ```
+
+The current applications are:
+
+- `hashimoto-platform-namespaces` reads this repository's root Kustomize configuration and creates the platform namespaces.
+- `hashimoto-api-gateway` reads `hashimoto-platform`, branch `main`, path `k8s`. That path's root Kustomization deploys the platform resources, despite the Application's current display name.
+
+The namespace Application currently targets `feature/argocd-manifests`. Before using this as the shared team setup, merge the manifests changes to `main` and update its `targetRevision` to `main`, or deliberately select another maintained branch.
+
+## Prerequisites
+
+- Docker, K3d, `kubectl`, Git, and Make installed on the development computer.
+- The `hashimoto-platform` and `hashimoto-manifests` repositories cloned locally.
+- A K3d cluster with context `k3d-hashimoto-cluster`. The platform repository's [K3d onboarding guide](https://github.com/EdwinRodriguezValle/hashimoto-platform/blob/main/docs/k8s-onboarding.md) creates it.
+- GitHub Actions enabled for `hashimoto-platform` and the GHCR packages configured for Kubernetes pulls.
+
+## Local K3d setup
+
+For the full workflow—including branch/PR behavior, GHCR image publication, Argo CD sync, troubleshooting, and local security boundaries—follow [GitOps with Argo CD on local K3d](https://github.com/EdwinRodriguezValle/hashimoto-platform/blob/main/docs/gitops-k3d.md).
+
+From the `hashimoto-platform` repository, create or select the cluster:
+
+```bash
+make cluster-create
+# If it already exists, use this instead:
+# make cluster-use
+kubectl config current-context
+kubectl get nodes
+```
+
+From the root of this repository, install Argo CD and the local ingress settings:
+
+```bash
+kubectl create namespace argocd
+kubectl apply --server-side --force-conflicts -n argocd \
+  -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl apply -f argocd/bootstrap/
+kubectl wait --for=condition=Available deployment/argocd-server \
+  -n argocd --timeout=300s
+```
+
+The install URL follows the current `stable` release. For a repeatable team setup, pin and document a specific Argo CD release. The bootstrap uses local HTTP through Traefik; do not expose it to a public network.
+
+Add `127.0.0.1 argocd.local` to the computer's hosts file, then register both Applications:
+
+```bash
+kubectl apply -f argocd/applications/hashimoto-local.yaml
+kubectl get application hashimoto-platform-namespaces -n argocd -w
+# Wait until it reports Synced and Healthy, then stop watching with Ctrl-C.
+kubectl apply -f argocd/applications/api-gateway.yaml
+kubectl get applications -n argocd
+```
+
+Open [http://argocd.local:8085](http://argocd.local:8085). The initial admin password is in the `argocd-initial-admin-secret` Secret in namespace `argocd`. Change the password after logging in.
+
+To print the initial password in your terminal:
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath='{.data.password}' | base64 -d; echo
+```
+
+The two Application files are currently applied manually. The root Application manages namespaces; it does **not** discover other Application files by itself. After editing an Application definition, run `kubectl apply -f` for that file. A future app-of-apps setup can make Application registration fully declarative.
+
+The current `namespaces.yaml` in this repository still declares the `argocd` namespace, and the root Application has pruning enabled. Do not remove that declaration casually: first migrate namespace ownership so an Argo sync cannot prune the namespace Argo CD itself. The application repository's `k8s/namespaces.yaml` intentionally does not declare `argocd`.
+
+## How a deployment reaches K3d
+
+1. Create a `feature/...` branch and open a pull request to `main` in `hashimoto-platform`.
+2. Review the backend, frontend, and security checks; merge the pull request.
+3. GitHub Actions builds the frontend, API Gateway, and Patient Service images, tags them with the source commit SHA, and publishes them to GHCR.
+4. The workflow updates the image tags in `hashimoto-platform/k8s/core/kustomization.yaml` and commits that change to `main`.
+5. Argo CD detects the new Git revision and synchronizes the local K3d cluster.
+
+If GHCR packages are public, K3d can pull them without registry credentials. For private packages, configure an image pull Secret in the cluster and reference it from the workload pods. Never store its value in either repository.
+
+To check the deployment:
+
+```bash
+kubectl get applications -n argocd
+kubectl get pods -A
+kubectl get events -A --sort-by=.lastTimestamp
+```
+
+For rollback, revert the commit that changed the image tag or Kubernetes configuration. Argo CD will reconcile the previous desired state from Git.
+
+## Troubleshooting
+
+- **`cluster ... not found`:** the local cluster destination should be `https://kubernetes.default.svc`. `https://default.svc` is not the in-cluster API address.
+- **Application does not update after a push:** check `repoURL`, `targetRevision`, and `path`. Changes to `argocd/applications/*.yaml` also require applying that Application file because there is not yet an app-of-apps parent.
+- **Argo cannot render `k8s`:** confirm that `hashimoto-platform/k8s/kustomization.yaml` exists on the selected branch.
+- **`ImagePullBackOff`:** check that the image tag exists in GHCR and that the package is public or the namespace has a valid image pull Secret.
+- **Argo keeps reverting a manual change:** Git is the desired state. Make the intended edit in Git and let Argo CD sync it.
+- **The image-tag workflow cannot push its update:** confirm the workflow's `contents: write` permission is allowed by the repository or organization Actions settings.
+
+## Security notes
+
+The local cluster uses development settings. Do not commit real credentials, access tokens, or personal health data. Keep Argo CD local, rotate its initial admin password, and use a secret-management solution before sharing or promoting the deployment beyond local development.

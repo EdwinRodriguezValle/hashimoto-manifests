@@ -2,15 +2,19 @@
 
 ## Purpose
 
-This document is a practical learning and implementation plan for building a professional, repeatable delivery path for the current Hashimoto Platform. It covers this application repository and the separate `hashimoto-manifests` GitOps repository.
+This document records the current delivery model and the next steps toward a more separated, reviewable GitOps workflow. It covers this application repository and the separate `hashimoto-manifests` repository.
 
-The first deployment target is a Kubernetes cluster running on the developer's own machine (K3d). GitHub Actions will build, check, and publish application images. Argo CD, running inside the local cluster, will watch `hashimoto-manifests` and reconcile the cluster to the desired state. GitHub-hosted runners cannot normally reach a cluster behind a home router or firewall, so the cluster should pull changes outward rather than requiring an inbound connection from GitHub.
+The deployment target is a Kubernetes cluster running on the developer's own machine (K3d). GitHub Actions builds and publishes images to GHCR. Argo CD runs inside K3d and pulls the desired state from Git, so GitHub-hosted runners do not need an inbound connection to the developer's computer. The computer and cluster must be online for deployment reconciliation.
 
 This is an incremental plan, not a requirement to install every tool immediately. Start with a working, understandable path and add controls as the project grows.
 
-## Current repository baseline
+## Current delivery model
 
-The repository currently contains:
+- `hashimoto-platform` owns application source, image builds, and Kubernetes resources under `k8s/`. The main-branch workflow publishes SHA-tagged images and updates image tags in that same repository.
+- `hashimoto-manifests` owns Argo CD bootstrap settings and Application resources. Its workload Application points to `hashimoto-platform`, branch `main`, path `k8s`.
+- K3d is the local deployment target; no always-on application server is required.
+
+The application repository contains:
 
 - **Frontend:** React, TypeScript, Vite, ESLint, and an Nginx container image in `hashimoto-tracker-app/`.
 - **Backend:** a Maven parent project with `api-gateway/` and `patient-service/`, using Java 21 and Spring Boot. The parent includes Spring test dependencies.
@@ -19,23 +23,23 @@ The repository currently contains:
 - **Local deployment:** `Makefile` targets that build images, import them into K3d, and apply manifests.
 - **Existing checks:** the frontend has `lint` and `build` npm scripts. Maven test dependencies exist, but CI should first establish which tests currently run and pass.
 
-The first delivery milestone should use the existing services and local cluster rather than redesigning the platform. In particular, retain the current local `make` workflow while introducing CI and GitOps in small steps.
+Keep the manual `make` workflow available for recovery and learning, but do not use it to change resources Argo CD already owns. A later improvement can move deployment configuration and image promotion to `hashimoto-manifests` without changing the local K3d target.
 
 ## Target delivery flow
 
 ```text
-Code repository (this repo)
-  └─ Pull request: lint, build, tests, security checks, manifest validation
-  └─ Merge to main: build and scan immutable container images; publish to GHCR
-                    └─ Open/update a pull request in hashimoto-manifests
+hashimoto-platform
+  └─ feature branch → pull request → CI/security checks → merge to main
+       └─ build SHA-tagged images → publish to GHCR
+            └─ update k8s/core/kustomization.yaml in this repository
 
 hashimoto-manifests
-  └─ Review and merge image tag + deployment configuration
-  └─ Argo CD detects the Git change and reconciles the local K3d cluster
-       └─ Kubernetes pulls the image from GHCR and rolls out the workloads
+  └─ Argo CD Application points at hashimoto-platform:main, path k8s
+       └─ Argo CD detects the Git change and reconciles local K3d
+            └─ Kubernetes pulls images from GHCR and rolls out workloads
 ```
 
-The application repository owns source code and image builds. The manifests repository owns deployment configuration, image versions, environment-specific settings, and Argo CD `Application`/`ApplicationSet` resources. Do not copy application source code into the manifests repository.
+Today, `hashimoto-platform` contains both application source and the deployment manifests Argo CD syncs. `hashimoto-manifests` contains the Argo CD bootstrap and Application definitions. Keep this ownership explicit: do not let both repositories independently edit the same live Kubernetes resources. Moving image versions and environment overlays to `hashimoto-manifests` is a future improvement, not a prerequisite for local GitOps.
 
 ## Ordered implementation plan
 
@@ -82,7 +86,7 @@ Do not turn on every possible blocking rule before looking at current findings. 
 
 ### Phase 3 — Make Kubernetes configuration reviewable in CI
 
-The application repository currently contains Kubernetes files, and the manifests repository will eventually become the deployment source of truth. Choose one canonical owner for each deployed manifest before enabling Argo CD; avoid having two repositories independently change the same live resources.
+The application repository currently contains Kubernetes files and is the source Argo CD syncs. The manifests repository currently contains the Argo CD bootstrap and Application definitions. Keep one canonical owner for every live resource; avoid changing the same workload from both repositories or from `kubectl` after Argo CD owns it.
 
 For the manifests repository, add pull-request validation for:
 
@@ -111,9 +115,9 @@ For a learning project, publish one image per service from a shared workflow, bu
 
 **Exit condition:** a successful default-branch build produces three identifiable, pullable images tied to a source commit.
 
-### Phase 5 — Connect image delivery to `hashimoto-manifests`
+### Phase 5 — Promote deployment configuration to `hashimoto-manifests` (future improvement)
 
-Use a pull-request-based promotion flow:
+The current pipeline updates image tags in `hashimoto-platform`. A more separated team workflow can make `hashimoto-manifests` own deployment versions and environment overlays. When taking that step:
 
 1. On successful image publication, automation opens or updates a change in `hashimoto-manifests` that changes the relevant image tag to the commit SHA.
 2. Prefer a narrowly scoped GitHub App installation token. A fine-grained token restricted to the manifests repository is a simpler learning alternative; store it as a GitHub Actions secret, never in source code.
@@ -121,21 +125,21 @@ Use a pull-request-based promotion flow:
 4. Review and merge the manifests pull request. This records exactly which code revision is intended for deployment and allows rollback by reverting the Git change.
 5. Later, add an explicit promotion process from `local` to `staging`/`production` overlays when those environments exist.
 
-**Exit condition:** merging code creates a reviewable manifests change, and merging that change selects the image version for local deployment.
+**Exit condition:** a code merge creates a reviewable change in `hashimoto-manifests`, and merging that change selects the image version for local deployment.
 
 ### Phase 6 — Install Argo CD in local K3d
 
 1. Create/start the existing K3d cluster and confirm the intended Kubernetes context. Keep a context guard for manual commands.
 2. Install Argo CD into a dedicated namespace using its official installation method, then pin and document the selected version.
-3. Configure Argo CD with read-only access to `hashimoto-manifests`. Use a deploy key or GitHub App credentials stored as a Kubernetes Secret; never put credentials in a committed `Application` manifest.
-4. Add an Argo CD `Application` (or a small app-of-apps root) in the manifests repository that points at the local Kustomize overlay.
+3. Configure Argo CD with read-only access to the repository containing its Application source. The current application repository is public; for private repositories, use a deploy key or GitHub App credentials stored as a Kubernetes Secret, never in a committed `Application` manifest.
+4. Keep the current Application in `hashimoto-manifests` pointed at `hashimoto-platform:main`, path `k8s`. The two Application definitions are applied manually today; a root app-of-apps can manage child Applications in a later iteration.
 5. Initially use **manual sync** and inspect the diff. Once the rendered resources and ownership are correct, enable automated sync and pruning deliberately. Consider `selfHeal` only after normal edits are expected to flow through Git.
 6. Configure GHCR image pulls (public packages need no pull secret; private packages do). Check image architecture and storage behavior on the local machine.
 7. Add health checks and resource requests/limits where missing, then check rollout status and application health in Argo CD.
 
-Argo CD should manage application workloads from `hashimoto-manifests`. Decide explicitly whether it also owns infrastructure and monitoring manifests; some local persistent services may need manual bootstrap, backup, and upgrade care.
+Argo CD currently manages the resources rendered from `hashimoto-platform/k8s`. Decide explicitly whether it should own infrastructure and monitoring as well; persistent local services need deliberate backup and upgrade care. Do not also run `make deploy-all` for resources Argo CD manages.
 
-**Exit condition:** a merged image-tag change in `hashimoto-manifests` is detected by Argo CD and rolls out successfully on the local K3d cluster without a GitHub runner connecting inbound to the machine.
+**Exit condition:** a merged main-branch image-tag change is detected by Argo CD and rolls out successfully on local K3d without a GitHub runner connecting inbound to the machine.
 
 ### Phase 7 — Add meaningful automated tests
 
@@ -231,15 +235,15 @@ For an initially free path, prioritize GitHub Actions, GHCR, Maven/JUnit, Vitest
 
 Work through these tasks in order:
 
-1. Verify that the current local K3d deployment is repeatable from the onboarding guide.
-2. Add a pull-request workflow for frontend lint/build and Maven verification.
-3. Fix the failures it exposes and require those checks for merges.
-4. Add Gitleaks and Dependabot; review the initial findings and configuration.
-5. Add manifest render/schema validation for the future `hashimoto-manifests` layout.
-6. Build the three images with commit-SHA tags and publish them to GHCR.
-7. Create an automated pull request in `hashimoto-manifests` to update those tags.
-8. Install Argo CD in local K3d and first sync manually.
-9. Verify a Git-only image tag change rolls out and that reverting the manifests commit rolls back.
+1. Keep the local K3d workflow repeatable from the onboarding guide.
+2. Review and require the frontend, backend, and security PR checks before merging.
+3. Confirm a main-branch workflow publishes all three immutable image tags and commits the matching Kustomize update.
+4. Confirm GHCR package visibility or image pull credentials allow K3d to pull the images.
+5. Validate the root `k8s` Kustomize build and schema in CI before deployment.
+6. Keep Argo CD's Application source, branch, and path aligned with the intended Git source of truth.
+7. Verify a Git-only image-tag update rolls out, and that reverting the tag commit rolls back.
+8. Add a root app-of-apps so Application definitions no longer need manual `kubectl apply`.
+9. Decide whether to move image versions into `hashimoto-manifests` and use a reviewed promotion PR.
 10. Add integration and browser tests once the basic build/deploy feedback loop is stable.
 
 Do not start by adding cloud infrastructure, a public self-hosted runner, or a large testing platform. The local GitOps loop is the first goal; a later cloud migration should mostly add a new environment overlay, credentials/secret management, and environment-specific operational controls.
