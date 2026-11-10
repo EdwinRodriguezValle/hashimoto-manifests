@@ -16,5 +16,11 @@ spec:
     automated:
       prune: true
       selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
+    # The namespaces child Application owns namespace creation. Retry here so
+    # the platform can sync cleanly even if both child Applications start together.
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

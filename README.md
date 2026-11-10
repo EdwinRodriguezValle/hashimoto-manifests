@@ -18,6 +18,8 @@ The root Application is `hashimoto-root`. It watches `argocd/applications` and c
 - `hashimoto-platform-namespaces` reads `namespaces/` in this repository and creates the platform namespaces.
 - `hashimoto-api-gateway` reads `hashimoto-platform`, branch `main`, path `k8s`. That path's root Kustomization deploys the platform resources, despite the Application's current display name.
 
+The namespace Application is the sole owner of the platform namespaces. Keep `namespaces.yaml` out of `hashimoto-platform/k8s/kustomization.yaml`; the workload Application retries failed syncs while the namespace Application creates the required namespaces. Namespace pruning is disabled because deleting a Namespace can delete all resources inside it. Retire namespaces through a deliberate, reviewed cleanup.
+
 The root and child Applications track `main`. Merge this setup to `main` before bootstrapping it. For a temporary local test from a feature branch, change `targetRevision` deliberately and restore `main` before merging.
 
 ## Prerequisites
@@ -103,6 +105,7 @@ For rollback, revert the commit that changed the image tag or Kubernetes configu
 - **`cluster ... not found`:** the local cluster destination should be `https://kubernetes.default.svc`. `https://default.svc` is not the in-cluster API address.
 - **Application does not update after a push:** check `repoURL`, `targetRevision`, and `path`; confirm the change is on the tracked branch (`main`) and inspect `hashimoto-root` before the child Application.
 - **Argo cannot render `k8s`:** confirm that `hashimoto-platform/k8s/kustomization.yaml` exists on the selected branch.
+- **Platform sync fails because a namespace is missing:** confirm that the namespace Application is healthy and that `hashimoto-platform/k8s/kustomization.yaml` does not include `namespaces.yaml`.
 - **`ImagePullBackOff`:** check that the image tag exists in GHCR and that the package is public or the namespace has a valid image pull Secret.
 - **Argo keeps reverting a manual change:** Git is the desired state. Make the intended edit in Git and let Argo CD sync it.
 - **The image-tag workflow cannot push its update:** confirm the workflow's `contents: write` permission is allowed by the repository or organization Actions settings.
