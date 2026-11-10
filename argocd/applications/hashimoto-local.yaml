@@ -14,5 +14,7 @@ spec:
     namespace: default
   syncPolicy:
     automated:
-      prune: true
+      # Removing a Namespace can delete all of its namespaced resources.
+      # Keep namespace retirement explicit and reviewed.
+      prune: false
       selfHeal: true
